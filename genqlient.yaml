@@ -1,5 +1,0 @@
-# genqlient.yaml
-schema: https://graphql.anilist.co
-operations:
-  - "**/*.graphql"
-generated: "generated/genql.go"
