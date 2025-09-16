@@ -1,0 +1,13 @@
+# queries.graphql
+query GetAnimeBySeason($season: MediaSeason, $seasonYear: Int) {
+    Page {
+        media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: POPULARITY_DESC) {
+            id
+            title {
+                romaji
+                english
+            }
+            episodes
+        }
+    }
+}
