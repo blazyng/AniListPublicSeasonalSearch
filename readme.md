@@ -56,7 +56,7 @@ Make sure you have [Go](https://go.dev/doc/install) installed on your system.
 
 ## 📚 API Reference
 
-This project uses the public [AniList API](https://anilist.co). The documentation for their GraphQL endpoint can be found here: [AniList APIv2 Docs](https://anilist.github.io/ApiV2-GraphQL-Docs/).
+This project uses the public [AniList API](https://anilist.co). The documentation for their GraphQL endpoint can be found here: [AniList API Docs](https://docs.anilist.co/reference/).
 
 ## 🎯 Learning Goals
 
