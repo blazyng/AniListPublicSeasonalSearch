@@ -12,7 +12,6 @@ import (
 )
 
 // The Go structs to hold the JSON response from the API.
-// We use `json:"..."` tags to map the JSON keys to our struct fields.
 type ResponseData struct {
 	Data struct {
 		Page struct {
@@ -22,18 +21,18 @@ type ResponseData struct {
 					Romaji  string `json:"romaji"`
 					English string `json:"english"`
 				} `json:"title"`
-				StartDate struct { // NEW
+				StartDate struct {
 					Year  int `json:"year"`
 					Month int `json:"month"`
 					Day   int `json:"day"`
 				} `json:"startDate"`
-				EndDate struct { // NEW
+				EndDate struct {
 					Year  int `json:"year"`
 					Month int `json:"month"`
 					Day   int `json:"day"`
 				} `json:"endDate"`
-				Episodes   int      `json:"episodes"` // NEW
-				CoverImage struct { // NEW
+				Episodes   int `json:"episodes"`
+				CoverImage struct {
 					Large string `json:"large"`
 				} `json:"coverImage"`
 			} `json:"media"`
@@ -47,71 +46,49 @@ type GraphQLRequest struct {
 	Variables map[string]interface{} `json:"variables"`
 }
 
+// A clean struct for our final JSON output.
 type AnimeOutput struct {
 	Title        string `json:"title"`
 	EnglishTitle string `json:"english_title,omitempty"`
 	Episodes     int    `json:"episodes"`
 	StartDate    string `json:"start_date"`
-	EndDate      string `json:"end_date,omitempty"` // omitempty:
+	EndDate      string `json:"end_date,omitempty"`
 	CoverImage   string `json:"cover_image"`
 }
 
-func main() {
-	// Define command-line flags.
-	// We use the current year as the default value for the 'year' flag.
-	currentYear := time.Now().Year()
-	yearPtr := flag.Int("year", currentYear, "The year of the anime season (e.g., 2025)")
-	seasonPtr := flag.String("season", "WINTER", "The anime season (WINTER, SPRING, SUMMER, FALL)")
-
-	// Parse the flags from the command line.
-	flag.Parse()
-	// Define the GraphQL query as a multi-line string.
+// GetAnimeBySeason handles the logic of fetching and parsing anime data from the API.
+func GetAnimeBySeason(year int, season string) ([]AnimeOutput, error) {
 	query := `
 		query($season: MediaSeason, $seasonYear: Int) {
 			Page {
 				media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: POPULARITY_DESC) {
 					id
-					title {
-						romaji
-						english
-					}
-					startDate { # NEW
-						year
-						month
-						day
-					}
-					endDate { # NEW
-						year
-						month
-						day
-					}
-					episodes     # NEW
-					coverImage { # NEW
-						large
-					}
+					title { romaji english }
+					startDate { year month day }
+					endDate { year month day }
+					episodes
+					coverImage { large }
 				}
 			}
 		}`
 
-	// Create the request payload object using the values from the flags.
 	requestPayload := GraphQLRequest{
 		Query: query,
 		Variables: map[string]interface{}{
-			"season":     *seasonPtr, //
-			"seasonYear": *yearPtr,   //
+			"season":     season,
+			"seasonYear": year,
 		},
 	}
 
-	// Convert the payload object to a JSON byte buffer.
 	payloadBytes, err := json.Marshal(requestPayload)
 	if err != nil {
-		log.Fatal("Error creating JSON payload:", err)
+		return nil, fmt.Errorf("error creating JSON payload: %w", err)
 	}
 	payloadBuffer := bytes.NewBuffer(payloadBytes)
 
 	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://graphql.anilist.co", payloadBuffer)
 	if err != nil {
-		log.Fatal("Error creating HTTP request:", err)
+		return nil, fmt.Errorf("error creating HTTP request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
@@ -119,21 +96,16 @@ func main() {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal("Error sending request:", err)
+		return nil, fmt.Errorf("error sending request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var responseData ResponseData
 	if err := json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
-		log.Fatal("Error decoding JSON response:", err)
+		return nil, fmt.Errorf("error decoding JSON response: %w", err)
 	}
 
-	// --- ÄNDERUNG: Die formatierte Textausgabe wird ersetzt ---
-
-	// 1. Erstelle eine Liste (slice) für unsere sauberen Anime-Daten.
 	var results []AnimeOutput
-
-	// 2. Gehe durch die API-Antwort und fülle unsere saubere Liste.
 	for _, anime := range responseData.Data.Page.Media {
 		output := AnimeOutput{
 			Title:        anime.Title.Romaji,
@@ -142,19 +114,35 @@ func main() {
 			StartDate:    fmt.Sprintf("%d-%02d-%02d", anime.StartDate.Year, anime.StartDate.Month, anime.StartDate.Day),
 			CoverImage:   anime.CoverImage.Large,
 		}
-		// Füge das Enddatum nur hinzu, wenn es existiert.
 		if anime.EndDate.Year != 0 {
 			output.EndDate = fmt.Sprintf("%d-%02d-%02d", anime.EndDate.Year, anime.EndDate.Month, anime.EndDate.Day)
 		}
 		results = append(results, output)
 	}
 
-	// 3. Konvertiere unsere saubere Liste in schön formatiertes JSON.
-	jsonOutput, err := json.MarshalIndent(results, "", "  ") // "" für kein Prefix, "  " für 2 Leerzeichen Einrückung
+	return results, nil
+}
+
+func main() {
+	// --- Main function---
+
+	// 1. Handle command-line input
+	currentYear := time.Now().Year()
+	yearPtr := flag.Int("year", currentYear, "The year of the anime season (e.g., 2025)")
+	seasonPtr := flag.String("season", "WINTER", "The anime season (WINTER, SPRING, SUMMER, FALL)")
+	flag.Parse()
+
+	// 2. Call the core logic
+	results, err := GetAnimeBySeason(*yearPtr, *seasonPtr)
+	if err != nil {
+		log.Fatal(err) // If an error occurs, exit the program
+	}
+
+	// 3. Handle the final output
+	jsonOutput, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		log.Fatal("Error creating JSON output:", err)
 	}
 
-	// 4. Gib das finale JSON auf der Konsole aus.
 	fmt.Println(string(jsonOutput))
 }
