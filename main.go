@@ -20,6 +20,20 @@ type ResponseData struct {
 					Romaji  string `json:"romaji"`
 					English string `json:"english"`
 				} `json:"title"`
+				StartDate struct { // NEW
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"startDate"`
+				EndDate struct { // NEW
+					Year  int `json:"year"`
+					Month int `json:"month"`
+					Day   int `json:"day"`
+				} `json:"endDate"`
+				Episodes   int      `json:"episodes"` // NEW
+				CoverImage struct { // NEW
+					Large string `json:"large"`
+				} `json:"coverImage"`
 			} `json:"media"`
 		} `json:"Page"`
 	} `json:"data"`
@@ -41,6 +55,20 @@ func main() {
 					title {
 						romaji
 						english
+					}
+					startDate { # NEW
+						year
+						month
+						day
+					}
+					endDate { # NEW
+						year
+						month
+						day
+					}
+					episodes     # NEW
+					coverImage { # NEW
+						large
 					}
 				}
 			}
@@ -87,8 +115,21 @@ func main() {
 	// Print the results.
 	fmt.Println("Successfully fetched anime for WINTER 2024:")
 	for _, anime := range responseData.Data.Page.Media {
-		if anime.Title.Romaji != "" {
-			fmt.Printf("- %s (%s)\n", anime.Title.Romaji, anime.Title.English)
+		// Print title and episode count
+		fmt.Printf("\n---\nTitle: %s (%s)\n", anime.Title.Romaji, anime.Title.English)
+		fmt.Printf("Episodes: %d\n", anime.Episodes)
+
+		// Format and print start date
+		startDate := fmt.Sprintf("%d-%02d-%02d", anime.StartDate.Year, anime.StartDate.Month, anime.StartDate.Day)
+		fmt.Printf("Start Date: %s\n", startDate)
+
+		// Only print end date if it exists (year is not 0)
+		if anime.EndDate.Year != 0 {
+			endDate := fmt.Sprintf("%d-%02d-%02d", anime.EndDate.Year, anime.EndDate.Month, anime.EndDate.Day)
+			fmt.Printf("End Date: %s\n", endDate)
 		}
+
+		// Print cover image link
+		fmt.Printf("Cover Image: %s\n", anime.CoverImage.Large)
 	}
 }
