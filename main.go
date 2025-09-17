@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 )
 
 // The Go structs to hold the JSON response from the API.
@@ -45,7 +47,24 @@ type GraphQLRequest struct {
 	Variables map[string]interface{} `json:"variables"`
 }
 
+type AnimeOutput struct {
+	Title        string `json:"title"`
+	EnglishTitle string `json:"english_title,omitempty"`
+	Episodes     int    `json:"episodes"`
+	StartDate    string `json:"start_date"`
+	EndDate      string `json:"end_date,omitempty"` // omitempty:
+	CoverImage   string `json:"cover_image"`
+}
+
 func main() {
+	// Define command-line flags.
+	// We use the current year as the default value for the 'year' flag.
+	currentYear := time.Now().Year()
+	yearPtr := flag.Int("year", currentYear, "The year of the anime season (e.g., 2025)")
+	seasonPtr := flag.String("season", "WINTER", "The anime season (WINTER, SPRING, SUMMER, FALL)")
+
+	// Parse the flags from the command line.
+	flag.Parse()
 	// Define the GraphQL query as a multi-line string.
 	query := `
 		query($season: MediaSeason, $seasonYear: Int) {
@@ -74,12 +93,12 @@ func main() {
 			}
 		}`
 
-	// Create the request payload object.
+	// Create the request payload object using the values from the flags.
 	requestPayload := GraphQLRequest{
 		Query: query,
 		Variables: map[string]interface{}{
-			"season":     "WINTER",
-			"seasonYear": 2024,
+			"season":     *seasonPtr, //
+			"seasonYear": *yearPtr,   //
 		},
 	}
 
@@ -90,7 +109,6 @@ func main() {
 	}
 	payloadBuffer := bytes.NewBuffer(payloadBytes)
 
-	// Create the HTTP POST request.
 	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://graphql.anilist.co", payloadBuffer)
 	if err != nil {
 		log.Fatal("Error creating HTTP request:", err)
@@ -98,7 +116,6 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	// Execute the request.
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -106,30 +123,38 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	// Decode the JSON response into our Go structs.
 	var responseData ResponseData
 	if err := json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		log.Fatal("Error decoding JSON response:", err)
 	}
 
-	// Print the results.
-	fmt.Println("Successfully fetched anime for WINTER 2024:")
+	// --- ÄNDERUNG: Die formatierte Textausgabe wird ersetzt ---
+
+	// 1. Erstelle eine Liste (slice) für unsere sauberen Anime-Daten.
+	var results []AnimeOutput
+
+	// 2. Gehe durch die API-Antwort und fülle unsere saubere Liste.
 	for _, anime := range responseData.Data.Page.Media {
-		// Print title and episode count
-		fmt.Printf("\n---\nTitle: %s (%s)\n", anime.Title.Romaji, anime.Title.English)
-		fmt.Printf("Episodes: %d\n", anime.Episodes)
-
-		// Format and print start date
-		startDate := fmt.Sprintf("%d-%02d-%02d", anime.StartDate.Year, anime.StartDate.Month, anime.StartDate.Day)
-		fmt.Printf("Start Date: %s\n", startDate)
-
-		// Only print end date if it exists (year is not 0)
-		if anime.EndDate.Year != 0 {
-			endDate := fmt.Sprintf("%d-%02d-%02d", anime.EndDate.Year, anime.EndDate.Month, anime.EndDate.Day)
-			fmt.Printf("End Date: %s\n", endDate)
+		output := AnimeOutput{
+			Title:        anime.Title.Romaji,
+			EnglishTitle: anime.Title.English,
+			Episodes:     anime.Episodes,
+			StartDate:    fmt.Sprintf("%d-%02d-%02d", anime.StartDate.Year, anime.StartDate.Month, anime.StartDate.Day),
+			CoverImage:   anime.CoverImage.Large,
 		}
-
-		// Print cover image link
-		fmt.Printf("Cover Image: %s\n", anime.CoverImage.Large)
+		// Füge das Enddatum nur hinzu, wenn es existiert.
+		if anime.EndDate.Year != 0 {
+			output.EndDate = fmt.Sprintf("%d-%02d-%02d", anime.EndDate.Year, anime.EndDate.Month, anime.EndDate.Day)
+		}
+		results = append(results, output)
 	}
+
+	// 3. Konvertiere unsere saubere Liste in schön formatiertes JSON.
+	jsonOutput, err := json.MarshalIndent(results, "", "  ") // "" für kein Prefix, "  " für 2 Leerzeichen Einrückung
+	if err != nil {
+		log.Fatal("Error creating JSON output:", err)
+	}
+
+	// 4. Gib das finale JSON auf der Konsole aus.
+	fmt.Println(string(jsonOutput))
 }
