@@ -40,8 +40,8 @@ Make sure you have [Go](https://go.dev/doc/install) installed on your system.
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/YOUR-GITHUB-USERNAME/YOUR-REPO-NAME.git](https://github.com/YOUR-GITHUB-USERNAME/YOUR-REPO-NAME.git)
-    cd YOUR-REPO-NAME
+    git clone https://github.com/blazyng/AniListPublicSeasonalSearch
+    cd AniListPublicSeasonalSearch
     ```
 
 2.  **Run the application:**
